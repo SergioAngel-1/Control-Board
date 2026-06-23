@@ -1,45 +1,56 @@
-# Centro de Operaciones (ops-center)
+# Control
 
-Dashboard **100% local** para gestionar proyectos, entregables, métricas y pipeline
-personal. No tiene backend: todos los datos viven en el navegador en una base
-SQLite (vía `sql.js`) que se persiste en IndexedDB con `localforage`.
+**Tablero personal para organizar proyectos, tareas y objetivos.** Todo corre en el navegador, sin servidores, sin cuentas, sin internet. Tus datos nunca salen de tu máquina.
 
-## Stack
+![captura](https://img.shields.io/badge/estado-activo-brightgreen)
 
-- **React 19** + **Vite 7** (build estable basado en Rollup/esbuild)
-- **Tailwind CSS 3** (tema oscuro, estilo Linear)
-- **sql.js** — SQLite compilado a WebAssembly, corriendo en el navegador
-- **localforage** — persistencia en IndexedDB
+---
 
-## Requisitos
+## ¿Qué puedo hacer con Control?
 
-- Node.js 20+ y npm
+- **Agrupar proyectos por categorías:** Clientes, Activos Estratégicos, Negocios, Proyectos Futuros, Personal — o las que tú definas.
+- **Organizar cada proyecto en secciones:** listas de tareas (*checklist*), notas, pasos de *pipeline* comercial, o simples bloques de texto.
+- **Marcar tareas, asignarles energía, etiquetas, fechas y recurrencia.** Ideal para metodologías como GTD o para el día a día.
+- **Ver métricas rápidas** del total de proyectos y tareas completadas.
+- **Dashboard principal** con los proyectos más urgentes.
+- **Exportar e importar** toda tu base de datos para hacer copias de seguridad o moverte de navegador.
+- **Todo oscuro, limpio y responsive.** Inspirado en Linear, funciona en escritorio y móvil.
 
-## Puesta en marcha
+---
+
+## ¿Cómo está hecho?
+
+| Capa | Tecnología |
+|------|-----------|
+| Interfaz | React 19 |
+| Estilos | Tailwind CSS 3 (tema oscuro personalizado) |
+| Base de datos | SQLite corriendo en WebAssembly (`sql.js`) |
+| Persistencia | IndexedDB mediante `localforage` |
+| Build | Vite 7 |
+
+No hay backend, no hay API, no hay registro de usuarios. La base de datos vive entera en tu navegador y se sincroniza automáticamente con el almacenamiento local.
+
+---
+
+## Primeros pasos
 
 ```bash
-npm install      # instala dependencias
-npm run dev      # servidor de desarrollo con HMR (http://localhost:5173)
-npm run build    # build de producción en dist/
-npm run preview  # sirve dist/ en local para verificar el build
-npm run lint     # ESLint
+npm install
+npm run dev
 ```
 
-## Funcionamiento offline
+Abre `http://localhost:5173` y empieza a usar Control. Los datos de ejemplo se cargan solos la primera vez.
 
-El binario WASM de SQLite lo resuelve Vite como asset desde `sql.js` (import
-`?url` en `src/db/database.js`), no desde un CDN. El build usa rutas relativas
-(`base: './'`) y emite el `.wasm` en `dist/assets/`, por lo que `dist/` funciona
-sin conexión con cualquier servidor estático. La única dependencia externa es la
-fuente Inter (Google Fonts); si no hay red, degrada al stack del sistema sin
-romper nada.
+Para construir una versión estática que puedas servir desde cualquier sitio:
 
-## Datos
+```bash
+npm run build
+```
 
-Los datos iniciales (proyectos, secciones, ítems, métricas, frases) se definen como
-*seed* en `src/db/database.js` y se cargan la primera vez. A partir de ahí, los
-cambios del usuario (ítems marcados, frase actual, secciones colapsadas, proyecto
-activo) se guardan en IndexedDB. Para reiniciar a los datos *seed*, borra la base
-`ops-center-v2` de IndexedDB en las DevTools del navegador.
+El contenido se genera en `dist/` y funciona sin conexión.
 
-Ver `AGENTS.md` para el contexto completo de arquitectura y convenciones.
+---
+
+## Licencia
+
+MIT
