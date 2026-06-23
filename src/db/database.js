@@ -324,6 +324,26 @@ export function reorderItems(sectionId, itemIds) {
   exec('UPDATE items SET sort_order = ? WHERE section_id = ? AND id = ?', params);
 }
 
+export function moveItem(itemId, targetSectionId, targetIndex) {
+  const rows = query('SELECT section_id FROM items WHERE id = ?', [itemId]);
+  if (rows.length === 0) return;
+  const sourceSectionId = rows[0].section_id;
+  if (sourceSectionId === targetSectionId) return;
+
+  // Move item to target section at targetIndex
+  exec('UPDATE items SET section_id = ?, sort_order = ? WHERE id = ?', [targetSectionId, targetIndex, itemId]);
+
+  // Re-index source section
+  const sourceItems = query('SELECT id FROM items WHERE section_id = ? ORDER BY sort_order', [sourceSectionId]);
+  const sourceParams = sourceItems.map((row, idx) => [idx, sourceSectionId, row.id]);
+  if (sourceParams.length > 0) exec('UPDATE items SET sort_order = ? WHERE section_id = ? AND id = ?', sourceParams);
+
+  // Re-index target section
+  const targetItems = query('SELECT id FROM items WHERE section_id = ? ORDER BY sort_order', [targetSectionId]);
+  const targetParams = targetItems.map((row, idx) => [idx, targetSectionId, row.id]);
+  exec('UPDATE items SET sort_order = ? WHERE section_id = ? AND id = ?', targetParams);
+}
+
 export function calcNextDue(currentDue, recurrence) {
   const base = currentDue ? new Date(currentDue + 'T12:00:00') : new Date();
   if (isNaN(base.getTime())) return null;

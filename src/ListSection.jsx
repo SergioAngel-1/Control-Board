@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
+import { useSortable } from '@dnd-kit/sortable';
 import { formatDate, isOverdue } from './db/database.js';
 import { useConfirm } from './hooks/useConfirm.js';
 
-function ListItem({ item, onDelete, onUpdate }) {
+function ListItem({ item, sectionId, onDelete, onUpdate }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id, data: { type: 'item', sectionId } });
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(item.text);
   const [editingDate, setEditingDate] = useState(false);
@@ -50,7 +52,12 @@ function ListItem({ item, onDelete, onUpdate }) {
   }
 
   return (
-    <div className="group flex items-center gap-2.5 px-3 py-1.5 rounded-sm text-sm font-[450] text-text-primary hover:bg-surface-raised transition-colors">
+    <div
+      ref={setNodeRef}
+      style={{ transform: transform && (transform.x || transform.y) ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined, transition, opacity: isDragging ? 0.4 : undefined }}
+      {...attributes}
+      {...listeners}
+      className="group flex items-center gap-2.5 px-3 py-1.5 rounded-sm text-sm font-[450] text-text-primary hover:bg-surface-raised transition-colors cursor-grab active:cursor-grabbing">
       <span className="w-[5px] h-[5px] rounded-full bg-text-tertiary flex-shrink-0" />
       {editing ? (
         <input
@@ -125,7 +132,7 @@ export default function ListSection({ items, onDeleteItem, onUpdateItem, onAddIt
   return (
     <div className="flex flex-col gap-0.5">
       {items.map(item => (
-        <ListItem key={item.id} item={item} onDelete={onDeleteItem} onUpdate={onUpdateItem} />
+        <ListItem key={item.id} item={item} sectionId={sectionId} onDelete={onDeleteItem} onUpdate={onUpdateItem} />
       ))}
       <AddItemRow sectionId={sectionId} onAdd={onAddItem} placeholder="Añadir item…" />
     </div>

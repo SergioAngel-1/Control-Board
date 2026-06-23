@@ -16,7 +16,7 @@ const ENERGY_MAP = { alta: ENERGY_OPTS[1], media: ENERGY_OPTS[2], baja: ENERGY_O
 
 const TAG_PRESETS = ['bug', 'feature', 'mejora', 'urgente', 'idea', 'seguimiento'];
 
-export default function ChecklistItem({ item, onToggle, onDelete, onUpdate }) {
+export default function ChecklistItem({ item, sectionId, onToggle, onDelete, onUpdate }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(item.text);
   const [editingDate, setEditingDate] = useState(false);
@@ -30,7 +30,7 @@ export default function ChecklistItem({ item, onToggle, onDelete, onUpdate }) {
   const tagRef = useRef(null);
   const done = !!item.done;
 
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id, data: { type: 'item', sectionId } });
 
   useEffect(() => {
     if (editing && inputRef.current) {

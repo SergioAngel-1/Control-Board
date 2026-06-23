@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { DndContext, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import Sidebar from './Sidebar.jsx';
 import MainHeader from './MainHeader.jsx';
@@ -17,6 +17,7 @@ import {
   createItem, deleteItem, updateItem, reorderItems, reorderSections,
   getDashboardData, ensureHistorySection, getDoneItemsByProject,
   createPipelineStep, updatePipelineStep, deletePipelineStep, reorderPipelineSteps,
+  moveItem,
 } from './db/database.js';
 
 export default function App() {
@@ -292,20 +293,86 @@ export default function App() {
     persistDB();
   }, []);
 
-  const sectionSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
-  function handleSectionDragEnd(event) {
+  function itemCollisionDetection(args) {
+    const { active, droppableContainers, ...rest } = args;
+    const activeType = active.data.current?.type;
+
+    if (activeType === 'section') {
+      return closestCenter({
+        ...rest,
+        active,
+        droppableContainers: droppableContainers.filter(c => c.data.current?.type === 'section'),
+      });
+    }
+
+    if (activeType === 'item') {
+      return closestCenter({
+        ...rest,
+        active,
+        droppableContainers: droppableContainers.filter(
+          c => c.data.current?.type === 'item' || c.data.current?.type === 'section-drop'
+        ),
+      });
+    }
+
+    return closestCenter(args);
+  }
+
+  function handleDragEnd(event) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const ids = sections.map(s => s.id);
-    const oldIdx = ids.indexOf(active.id);
-    const newIdx = ids.indexOf(over.id);
-    if (oldIdx === -1 || newIdx === -1) return;
-    ids.splice(oldIdx, 1);
-    ids.splice(newIdx, 0, active.id);
-    reorderSections(activeProjectId, ids);
-    persistDB();
-    setDataVersion(v => v + 1);
+    const activeType = active.data.current?.type;
+
+    if (activeType === 'section') {
+      if (over.data.current?.type !== 'section') return;
+      const ids = sections.map(s => s.id);
+      const oldIdx = ids.indexOf(active.id);
+      const newIdx = ids.indexOf(over.id);
+      if (oldIdx === -1 || newIdx === -1) return;
+      ids.splice(oldIdx, 1);
+      ids.splice(newIdx, 0, active.id);
+      reorderSections(activeProjectId, ids);
+      persistDB();
+      setDataVersion(v => v + 1);
+      return;
+    }
+
+    if (activeType === 'item') {
+      const activeSectionId = active.data.current?.sectionId;
+      const overType = over.data.current?.type;
+
+      if (overType === 'section-drop') {
+        const targetSectionId = over.data.current?.sectionId;
+        if (!targetSectionId || targetSectionId === activeSectionId) return;
+        const targetItems = itemsBySection[targetSectionId] || [];
+        moveItem(active.id, targetSectionId, targetItems.length);
+        persistDB();
+        setDataVersion(v => v + 1);
+        return;
+      }
+
+      if (overType === 'item') {
+        const overSectionId = over.data.current?.sectionId;
+        if (activeSectionId === overSectionId) {
+          const itemIds = (itemsBySection[activeSectionId] || []).map(i => i.id);
+          const oldIdx = itemIds.indexOf(active.id);
+          const newIdx = itemIds.indexOf(over.id);
+          if (oldIdx === -1 || newIdx === -1) return;
+          itemIds.splice(oldIdx, 1);
+          itemIds.splice(newIdx, 0, active.id);
+          reorderItems(activeSectionId, itemIds);
+        } else {
+          const targetItems = itemsBySection[overSectionId] || [];
+          const overIdx = targetItems.findIndex(i => i.id === over.id);
+          moveItem(active.id, overSectionId, overIdx);
+        }
+        persistDB();
+        setDataVersion(v => v + 1);
+        return;
+      }
+    }
   }
 
   const handleSectionReorderItems = useCallback((sectionId, itemIds) => {
@@ -475,7 +542,7 @@ export default function App() {
             <Dashboard projects={dashboardData} onSelectProject={handleDashboardSelectProject} onToggleItem={handleDashboardToggleItem} onToggleSidebar={handleToggleSidebar} />
           ) : (
             <div className="pt-6">
-              <DndContext onDragEnd={handleSectionDragEnd} sensors={sectionSensors}>
+              <DndContext onDragEnd={handleDragEnd} sensors={sensors} collisionDetection={itemCollisionDetection}>
                 <SortableContext items={sections.map(s => s.id)} strategy={verticalListSortingStrategy}>
                   {sections.map((sec, i) => (
                     <div key={sec.id} className="animate-fade-in" style={{ animationDelay: `${i * 40}ms` }}>

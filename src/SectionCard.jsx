@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
+import { useDroppable } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import ChecklistSection from './ChecklistSection.jsx';
 import ListSection from './ListSection.jsx';
 import PipelineSection from './PipelineSection.jsx';
@@ -18,7 +20,8 @@ export default function SectionCard({
   const confirm = useConfirm();
   const inputRef = useRef(null);
 
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: section.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: section.id, data: { type: 'section' } });
+  const { setNodeRef: dropRef, isOver } = useDroppable({ id: 'drop-' + section.id, data: { type: 'section-drop', sectionId: section.id } });
 
   useEffect(() => {
     if (editingTitle && inputRef.current) { inputRef.current.focus(); inputRef.current.select(); }
@@ -86,26 +89,30 @@ export default function SectionCard({
         style={{ gridTemplateRows: collapsed ? '0fr' : '1fr' }}
       >
         <div className="overflow-hidden">
-          <div className="py-0.5">
+          <div ref={dropRef} className={`py-0.5 rounded-sm transition-colors ${isOver ? 'bg-accent/5 ring-1 ring-accent/20' : ''}`}>
             {section.type === 'checklist' && (
-              <ChecklistSection
-                items={items}
-                sectionId={section.id}
-                onToggle={onToggleItem}
-                onDeleteItem={onDeleteItem}
-                onUpdateItem={onUpdateItem}
-                onAddItem={onAddItem}
-                onReorderItems={onReorderItems}
-              />
+              <SortableContext items={items.map(i => i.id)} strategy={verticalListSortingStrategy}>
+                <ChecklistSection
+                  items={items}
+                  sectionId={section.id}
+                  onToggle={onToggleItem}
+                  onDeleteItem={onDeleteItem}
+                  onUpdateItem={onUpdateItem}
+                  onAddItem={onAddItem}
+                  onReorderItems={onReorderItems}
+                />
+              </SortableContext>
             )}
             {section.type === 'list' && (
-              <ListSection
-                items={items}
-                sectionId={section.id}
-                onDeleteItem={onDeleteItem}
-                onUpdateItem={onUpdateItem}
-                onAddItem={onAddItem}
-              />
+              <SortableContext items={items.map(i => i.id)} strategy={verticalListSortingStrategy}>
+                <ListSection
+                  items={items}
+                  sectionId={section.id}
+                  onDeleteItem={onDeleteItem}
+                  onUpdateItem={onUpdateItem}
+                  onAddItem={onAddItem}
+                />
+              </SortableContext>
             )}
             {section.type === 'pipeline' && (
               <PipelineSection
