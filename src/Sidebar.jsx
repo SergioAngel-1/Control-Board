@@ -59,7 +59,7 @@ export default function Sidebar({
         } lg:translate-x-0`}
       >
         <div className="flex items-center justify-between px-4 py-5 pb-3.5 border-b border-border">
-          <h1 className="text-xs font-semibold uppercase tracking-wide text-text-secondary">Centro de Operaciones</h1>
+          <h1 className="text-xs font-semibold uppercase tracking-wide text-text-secondary">Control</h1>
           <button
             type="button"
             aria-label="Cerrar menú"
