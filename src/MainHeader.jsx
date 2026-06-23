@@ -4,7 +4,7 @@ import PriorityBadge from './PriorityBadge.jsx';
 import { STATUSES, PRIORITIES } from './db/database.js';
 
 export default function MainHeader({
-  project, totalItems, doneItems, onUpdateProject, onDeleteProject, onAddSection,
+  project, totalItems, doneItems, onUpdateProject, onDeleteProject, onAddSection, onToggleSidebar,
 }) {
   const [editingName, setEditingName] = useState(false);
   const [nameVal, setNameVal] = useState('');
@@ -59,9 +59,20 @@ export default function MainHeader({
   }
 
   return (
-    <div className="px-8 py-7 pb-4 border-b border-border max-sm:px-4 max-sm:pt-[60px]">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3 min-w-0">
+    <div className="sticky top-0 z-20 px-8 py-7 pb-4 border-b border-border max-sm:px-3 bg-base/80 backdrop-blur-md">
+      <div className="flex items-start sm:items-center justify-between flex-col sm:flex-row gap-2 sm:gap-3">
+        <div className="flex items-center gap-3 min-w-0 max-sm:flex-wrap">
+          <button
+            type="button"
+            aria-label="Abrir menú de proyectos"
+            aria-expanded={false}
+            onClick={onToggleSidebar}
+            className="lg:hidden flex items-center justify-center w-7 h-7 -ml-1 rounded-sm text-text-secondary hover:text-text-primary hover:bg-surface-hover transition-colors flex-shrink-0"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M3 5h14M3 10h14M3 15h14" strokeLinecap="round" />
+            </svg>
+          </button>
           {editingName ? (
             <input
               ref={inputRef}
@@ -73,12 +84,23 @@ export default function MainHeader({
               className="bg-transparent border-none outline-none text-[22px] font-semibold max-sm:text-lg text-text-primary"
             />
           ) : (
-            <h2
-              className="text-[22px] font-semibold max-sm:text-lg text-text-primary cursor-pointer hover:text-text-secondary transition-colors"
-              onDoubleClick={() => { setNameVal(project.name); setEditingName(true); }}
-            >
-              {project.name}
-            </h2>
+            <div className="flex items-center gap-1.5">
+              <h2
+                className="text-[22px] font-semibold max-sm:text-lg text-text-primary"
+              >
+                {project.name}
+              </h2>
+              <button
+                type="button"
+                onClick={() => { setNameVal(project.name); setEditingName(true); }}
+                className="text-text-tertiary hover:text-text-secondary transition-colors px-1 py-0.5 rounded-sm hover:bg-surface-hover"
+                title="Renombrar proyecto"
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M11.5 1.5l3 3L5 14H2v-3l9.5-9.5z" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </div>
           )}
           <div ref={statusRef} className="relative">
             <button
@@ -104,7 +126,7 @@ export default function MainHeader({
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2 text-xs text-text-secondary">
+        <div className="flex items-center gap-1.5 sm:gap-2 text-xs text-text-secondary flex-wrap">
           <div ref={priorityRef} className="relative">
             <button
               type="button"
@@ -114,7 +136,7 @@ export default function MainHeader({
               <PriorityBadge priority={project.priority} />
             </button>
             {showPriorityMenu && (
-              <div className="absolute top-full right-0 mt-1 z-50 bg-surface-raised border border-border rounded-[8px] py-1 shadow-lg min-w-[120px]">
+              <div className="absolute right-0 mt-1 z-50 bg-surface-raised border border-border rounded-[8px] py-1 shadow-lg min-w-[120px] max-sm:right-auto max-sm:left-0">
                 {PRIORITIES.map(p => (
                   <button
                     key={p}
@@ -140,26 +162,27 @@ export default function MainHeader({
             + Sec.
           </button>
           {showAddSection && (
-            <div className="absolute top-full right-0 mt-1 z-50 bg-surface-raised border border-border rounded-[8px] p-3 shadow-lg min-w-[200px]">
+            <div className="absolute top-full right-0 max-sm:right-auto max-sm:left-0 mt-1 z-50 bg-surface-raised border border-border rounded-[8px] p-2.5 max-sm:p-2 shadow-lg min-w-[180px] max-sm:min-w-0 max-sm:w-[calc(100dvw-32px)] max-sm:max-w-[220px]">
               <input
                 type="text"
                 value={newSectionTitle}
                 onChange={e => setNewSectionTitle(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleAddSection()}
-                placeholder="Título de la sección"
-                className="w-full bg-surface border border-border rounded-sm px-2 py-1 text-xs text-text-primary placeholder:text-text-tertiary outline-none mb-2"
+                placeholder="Título"
+                className="w-full bg-surface border border-border rounded-sm px-2 py-1 text-xs text-text-primary placeholder:text-text-tertiary outline-none mb-1.5"
                 autoFocus
               />
               <select
                 value={newSectionType}
                 onChange={e => setNewSectionType(e.target.value)}
-                className="w-full bg-surface border border-border rounded-sm px-2 py-1 text-xs text-text-secondary outline-none mb-2"
+                className="w-full bg-surface border border-border rounded-sm px-2 py-1 text-xs text-text-secondary outline-none mb-1.5"
               >
                 <option value="checklist">Checklist</option>
                 <option value="list">Lista</option>
                 <option value="note">Nota</option>
+                <option value="pipeline">Pipeline</option>
               </select>
-              <div className="flex gap-1">
+              <div className="flex gap-1.5">
                 <button type="button" onClick={handleAddSection}
                   className="flex-1 px-2 py-1 text-xs font-medium rounded-sm bg-accent/15 text-accent border border-accent/25 hover:bg-accent/25 transition-colors">
                   Crear
@@ -201,9 +224,9 @@ export default function MainHeader({
         </div>
       </div>
       </div>
-      <div className="mt-3 flex items-start gap-2">
+      <div className="mt-3 flex items-start gap-2 max-sm:flex-col">
         {editingNotes ? (
-          <div className="flex-1 flex gap-2">
+          <div className="flex-1 flex gap-2 min-w-0">
             <input
               ref={notesRef}
               type="text"
@@ -227,10 +250,10 @@ export default function MainHeader({
           <button
             type="button"
             onClick={() => { setNotesVal(project.notes || ''); setEditingNotes(true); }}
-            className="flex-1 text-left text-xs text-text-tertiary hover:text-text-secondary transition-colors px-2 py-1 rounded-sm hover:bg-surface-hover"
+            className="flex-1 text-left text-xs text-text-tertiary hover:text-text-secondary transition-colors px-2 py-1 rounded-sm hover:bg-surface-hover min-w-0 max-sm:max-w-full overflow-hidden"
           >
             {project.notes ? (
-              <span className="flex items-center gap-2">
+              <span className="flex items-center gap-2 min-w-0">
                 <svg className="w-3 h-3 text-text-tertiary flex-shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <path d="M4 2h8a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z" />
                   <path d="M6 5h4M6 8h4M6 11h2" strokeLinecap="round" />

@@ -1,9 +1,4 @@
-const PRIORITY = {
-  critica:{label:'Critica',color:'#ef4444'},
-  alta:{label:'Alta',color:'#f59e0b'},
-  media:{label:'Media',color:'#3b82f6'},
-  baja:{label:'Baja',color:'#6b7280'},
-};
+import { PRIORITY } from './constants/colors.js';
 
 export default function PriorityBadge({ priority }) {
   const p = PRIORITY[priority] || { label: priority, color: '#6b7280' };

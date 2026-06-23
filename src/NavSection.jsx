@@ -1,11 +1,67 @@
 import { useState } from 'react';
+import { useSortable } from '@dnd-kit/sortable';
+import { useDroppable } from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
+import { STATUS_DOT } from './constants/colors.js';
 
-const STATUS_DOT = {
-  activo:'#22c55e', esperando:'#f59e0b', esperando_contrato:'#f59e0b',
-  standby:'#6b7280', cerrado:'#ef4444', estrategico:'#8b5cf6',
-  prospecto:'#3b82f6', optimizado:'#06b6d4', terminado:'#22c55e',
-  mv_terminado:'#8b5cf6', pendientes:'#6b7280',
-};
+function CategoryDropZone({ category, isEmpty }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: 'catdrop-' + category,
+    data: { type: 'category', category },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`transition-colors rounded-sm ${
+        isEmpty
+          ? isOver
+            ? 'h-10 border-2 border-dashed border-accent bg-accent/10'
+            : 'h-10 border-2 border-dashed border-border-light'
+          : isOver
+            ? 'h-1 bg-accent/30'
+            : 'h-0.5'
+      }`}
+    >
+      {isEmpty && (
+        <span className={`flex items-center justify-center h-full text-[11px] ${isOver ? 'text-accent font-medium' : 'text-text-tertiary'}`}>
+          {isOver ? 'Soltar aquí' : 'Sin proyectos'}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function ProjectRow({ project, activeProjectId, onSelect }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: project.id,
+    data: { projectId: project.id },
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : undefined,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className={`flex items-center gap-2 px-4 py-1.5 text-sm font-[450] cursor-grab active:cursor-grabbing transition-all border-l-2 hover:bg-surface ${
+        activeProjectId === project.id
+          ? 'text-text-primary bg-surface-raised border-l-accent'
+          : 'text-text-secondary border-l-transparent'
+      }`}
+      onClick={() => onSelect(project.id)}
+    >
+      <span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: STATUS_DOT[project.status] || '#6b7280' }} />
+      <span className="overflow-hidden text-ellipsis whitespace-nowrap flex-1">{project.name}</span>
+    </div>
+  );
+}
 
 export default function NavSection({ category, projects, activeProjectId, collapsed, onToggle, onSelect, searchQuery, onRename, onDelete }) {
   const [showNewForm, setShowNewForm] = useState(false);
@@ -85,19 +141,9 @@ export default function NavSection({ category, projects, activeProjectId, collap
       </div>
       <div className="overflow-hidden transition-[max-height] duration-250 ease-out" style={{ maxHeight: collapsed ? '0' : '2000px' }}>
         {filtered.map(p => (
-          <div
-            key={p.id}
-            className={`flex items-center gap-2 px-4 py-1.5 text-sm font-[450] cursor-pointer transition-all border-l-2 hover:bg-surface ${
-              activeProjectId === p.id
-                ? 'text-text-primary bg-surface-raised border-l-accent'
-                : 'text-text-secondary border-l-transparent'
-            }`}
-            onClick={() => onSelect(p.id)}
-          >
-            <span className="w-[7px] h-[7px] rounded-full flex-shrink-0" style={{ background: STATUS_DOT[p.status] || '#6b7280' }} />
-            <span className="overflow-hidden text-ellipsis whitespace-nowrap flex-1">{p.name}</span>
-          </div>
+          <ProjectRow key={p.id} project={p} activeProjectId={activeProjectId} onSelect={onSelect} />
         ))}
+        <CategoryDropZone category={catLabel} isEmpty={filtered.length === 0} />
 
         {showNewForm && (
           <form onSubmit={handleCreate} className="px-4 py-1.5 flex gap-1">

@@ -1,6 +1,7 @@
 import StatusBadge from './StatusBadge.jsx';
 import PriorityBadge from './PriorityBadge.jsx';
-import { formatDate, isOverdue } from './db/database.js';
+import { formatDate, isOverdue, getTraceabilityMetrics } from './db/database.js';
+import DashboardTrace from './DashboardTrace.jsx';
 
 function findNextTask(sections, itemsBySection) {
   const withDate = [];
@@ -42,13 +43,13 @@ function getFutureTasks(sections, itemsBySection, nextTaskId) {
   return { nextSteps, futuro: futuro.slice(0, 3) };
 }
 
-function ProjectCard({ project, sections, itemsBySection, onSelect }) {
+function ProjectCard({ project, sections, itemsBySection, onSelect, onToggleItem }) {
   const nextTask = findNextTask(sections, itemsBySection);
   const { nextSteps, futuro } = getFutureTasks(sections, itemsBySection, nextTask?.id);
 
   return (
     <div
-      className="bg-surface border border-border rounded-[10px] p-5 flex flex-col gap-3 transition-all hover:border-border-light hover:bg-surface-raised cursor-pointer group animate-fade-in"
+      className="bg-surface border border-border rounded-[10px] p-5 flex flex-col gap-3 transition-all hover:border-border-light hover:bg-surface-raised cursor-pointer animate-fade-in"
       onClick={() => onSelect(project.id)}
       role="button"
       tabIndex={0}
@@ -62,7 +63,7 @@ function ProjectCard({ project, sections, itemsBySection, onSelect }) {
       <div className="flex items-center gap-2 flex-wrap">
         <StatusBadge status={project.status} />
         {project.notes && (
-          <span className="text-[11px] text-text-tertiary truncate max-w-[200px]">{project.notes}</span>
+          <span className="text-[11px] text-text-tertiary truncate max-w-[200px] max-sm:max-w-[120px]">{project.notes}</span>
         )}
       </div>
 
@@ -70,8 +71,22 @@ function ProjectCard({ project, sections, itemsBySection, onSelect }) {
         <span className="text-[10px] uppercase tracking-wider text-text-tertiary font-semibold">Próxima tarea</span>
         {nextTask ? (
           <div className="flex items-center gap-2 text-xs text-text-primary">
-            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isOverdue(nextTask.due_date) ? 'bg-red-400' : 'bg-accent'}`} />
+            <span
+              className="w-[16px] h-[16px] rounded-[4px] border border-border-light bg-transparent flex-shrink-0 flex items-center justify-center transition-all hover:border-accent"
+              onClick={e => { e.stopPropagation(); onToggleItem(nextTask.id); }}
+              role="checkbox"
+              tabIndex={-1}
+            />
             <span className="truncate flex-1">{nextTask.text}</span>
+            {nextTask.energy && (
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full whitespace-nowrap flex-shrink-0 ${
+                nextTask.energy === 'alta' ? 'text-red-400 bg-red-500/10' :
+                nextTask.energy === 'media' ? 'text-yellow-400 bg-yellow-500/10' :
+                'text-green-400 bg-green-500/10'
+              }`}>
+                {nextTask.energy}
+              </span>
+            )}
             <span className={`text-[10px] flex-shrink-0 ${isOverdue(nextTask.due_date) ? 'text-red-400' : 'text-text-tertiary'}`}>
               {formatDate(nextTask.due_date)}
             </span>
@@ -107,16 +122,33 @@ function ProjectCard({ project, sections, itemsBySection, onSelect }) {
 }
 
 const PRIORITY_ORDER = { critica: 0, alta: 1, media: 2, baja: 3 };
+const ACTIVE_STATUSES = ['activo', 'optimizado', 'esperando'];
 
-export default function Dashboard({ projects, onSelectProject }) {
+export default function Dashboard({ projects, onSelectProject, onToggleItem, onToggleSidebar }) {
+  const metrics = getTraceabilityMetrics();
   const sorted = [...projects]
-    .sort((a, b) => (PRIORITY_ORDER[a.priority] || 99) - (PRIORITY_ORDER[b.priority] || 99))
+    .sort((a, b) => {
+      const aActive = ACTIVE_STATUSES.includes(a.status) ? 0 : 1;
+      const bActive = ACTIVE_STATUSES.includes(b.status) ? 0 : 1;
+      if (aActive !== bActive) return aActive - bActive;
+      return (PRIORITY_ORDER[a.priority] ?? 2) - (PRIORITY_ORDER[b.priority] ?? 2);
+    })
     .slice(0, 8);
 
   return (
     <div className="pt-6 pb-12">
       <div className="flex items-center gap-3 mb-6">
-        <svg className="w-5 h-5 text-accent flex-shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <button
+          type="button"
+          aria-label="Abrir menú de proyectos"
+          onClick={onToggleSidebar}
+          className="lg:hidden flex items-center justify-center w-7 h-7 -ml-1 rounded-sm text-text-secondary hover:text-text-primary hover:bg-surface-hover transition-colors flex-shrink-0"
+        >
+          <svg className="w-4 h-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M3 5h14M3 10h14M3 15h14" strokeLinecap="round" />
+          </svg>
+        </button>
+        <svg className="w-5 h-5 text-accent flex-shrink-0 max-sm:hidden" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
           <rect x="2" y="3" width="16" height="14" rx="2" />
           <path d="M2 7h16" />
           <path d="M7 7v10" />
@@ -127,25 +159,36 @@ export default function Dashboard({ projects, onSelectProject }) {
         )}
       </div>
 
-      {sorted.length === 0 ? (
-        <div className="text-center py-20 text-text-tertiary">
-          <div className="text-3xl mb-3 opacity-30">&#x25A1;</div>
-          <h2 className="text-lg font-semibold text-text-secondary mb-1.5">Sin proyectos</h2>
-          <p className="text-sm">Crea un proyecto desde la barra lateral para ver el dashboard.</p>
+      <div className="flex flex-col gap-6 md:gap-8">
+        <div className="order-2 md:order-1">
+          {sorted.length === 0 ? (
+            <div className="text-center py-20 text-text-tertiary">
+              <div className="text-3xl mb-3 opacity-30">&#x25A1;</div>
+              <h2 className="text-lg font-semibold text-text-secondary mb-1.5">Sin proyectos</h2>
+              <p className="text-sm">Crea un proyecto desde la barra lateral para ver el dashboard.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+              {sorted.map(p => (
+                <ProjectCard
+                  key={p.id}
+                  project={p}
+                  sections={p.sections || []}
+                  itemsBySection={p.itemsBySection || {}}
+                  onSelect={onSelectProject}
+                  onToggleItem={onToggleItem}
+                />
+              ))}
+            </div>
+          )}
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
-          {sorted.map(p => (
-            <ProjectCard
-              key={p.id}
-              project={p}
-              sections={p.sections || []}
-              itemsBySection={p.itemsBySection || {}}
-              onSelect={onSelectProject}
-            />
-          ))}
-        </div>
-      )}
+
+        {sorted.length > 0 && (
+          <div className="order-1 md:order-2">
+            <DashboardTrace metrics={metrics} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

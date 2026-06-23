@@ -1,17 +1,22 @@
 import { useState, useRef, useEffect } from 'react';
+import { useSortable } from '@dnd-kit/sortable';
 import ChecklistSection from './ChecklistSection.jsx';
 import ListSection from './ListSection.jsx';
 import PipelineSection from './PipelineSection.jsx';
 import NoteSection from './NoteSection.jsx';
+import HistorySection from './HistorySection.jsx';
 
 export default function SectionCard({
   section, items, pipelineSteps, collapsed,
   onToggle, onToggleItem, onDeleteItem, onUpdateItem, onAddItem,
-  onDeleteSection, onRenameSection,
+  onDeleteSection, onRenameSection, onReorderItems,
+  onAddPipelineStep, onUpdatePipelineStep, onDeletePipelineStep, onReorderPipelineSteps,
 }) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleVal, setTitleVal] = useState(section.title);
   const inputRef = useRef(null);
+
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: section.id });
 
   useEffect(() => {
     if (editingTitle && inputRef.current) { inputRef.current.focus(); inputRef.current.select(); }
@@ -25,7 +30,13 @@ export default function SectionCard({
   }
 
   return (
-    <section className="mb-5 group/section">
+    <section
+      ref={setNodeRef}
+      style={{ transform: transform && (transform.x || transform.y) ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined, transition, opacity: isDragging ? 0.4 : undefined }}
+      {...attributes}
+      {...listeners}
+      className="mb-5 group/section cursor-grab active:cursor-grabbing"
+    >
       <div className="flex items-center gap-2 py-2 rounded-sm transition-colors hover:bg-surface">
         <button
           type="button"
@@ -66,31 +77,44 @@ export default function SectionCard({
         </button>
       </div>
       <div
-        className="overflow-hidden transition-[max-height] duration-300 ease-out"
-        style={{ maxHeight: collapsed ? '0' : '2000px' }}
+        className="grid transition-[grid-template-rows] duration-300 ease-out"
+        style={{ gridTemplateRows: collapsed ? '0fr' : '1fr' }}
       >
-        <div className="py-0.5">
-          {section.type === 'checklist' && (
-            <ChecklistSection
-              items={items}
-              sectionId={section.id}
-              onToggle={onToggleItem}
-              onDeleteItem={onDeleteItem}
-              onUpdateItem={onUpdateItem}
-              onAddItem={onAddItem}
-            />
-          )}
-          {section.type === 'list' && (
-            <ListSection
-              items={items}
-              sectionId={section.id}
-              onDeleteItem={onDeleteItem}
-              onUpdateItem={onUpdateItem}
-              onAddItem={onAddItem}
-            />
-          )}
-          {section.type === 'pipeline' && <PipelineSection steps={pipelineSteps} />}
-          {section.type === 'note' && <NoteSection text={section.text || ''} />}
+        <div className="overflow-hidden">
+          <div className="py-0.5">
+            {section.type === 'checklist' && (
+              <ChecklistSection
+                items={items}
+                sectionId={section.id}
+                onToggle={onToggleItem}
+                onDeleteItem={onDeleteItem}
+                onUpdateItem={onUpdateItem}
+                onAddItem={onAddItem}
+                onReorderItems={onReorderItems}
+              />
+            )}
+            {section.type === 'list' && (
+              <ListSection
+                items={items}
+                sectionId={section.id}
+                onDeleteItem={onDeleteItem}
+                onUpdateItem={onUpdateItem}
+                onAddItem={onAddItem}
+              />
+            )}
+            {section.type === 'pipeline' && (
+              <PipelineSection
+                steps={pipelineSteps}
+                sectionId={section.id}
+                onAddStep={onAddPipelineStep}
+                onUpdateStep={onUpdatePipelineStep}
+                onDeleteStep={onDeletePipelineStep}
+                onReorderSteps={onReorderPipelineSteps}
+              />
+            )}
+            {section.type === 'note' && <NoteSection text={section.text || ''} />}
+            {section.type === 'history' && <HistorySection items={items} onToggle={onToggleItem} />}
+          </div>
         </div>
       </div>
     </section>

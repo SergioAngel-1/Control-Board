@@ -1,8 +1,11 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import Sidebar from './Sidebar.jsx';
 import MainHeader from './MainHeader.jsx';
 import SectionCard from './SectionCard.jsx';
 import Dashboard from './Dashboard.jsx';
+import Settings from './Settings.jsx';
 import QuickSearch from './components/QuickSearch.jsx';
 import {
   initDB, getProjects, getCategories, getProjectsByCategory, getQuotes,
@@ -11,8 +14,9 @@ import {
   createProject, updateProject, deleteProject,
   createCategory, updateCategory, deleteCategory,
   createSection, deleteSection, updateSection,
-  createItem, deleteItem, updateItem,
-  getDashboardData,
+  createItem, deleteItem, updateItem, reorderItems, reorderSections,
+  getDashboardData, ensureHistorySection, getDoneItemsByProject,
+  createPipelineStep, updatePipelineStep, deletePipelineStep, reorderPipelineSteps,
 } from './db/database.js';
 
 export default function App() {
@@ -46,6 +50,10 @@ export default function App() {
         return;
       }
       refreshProjectData();
+      // Ensure history sections for all existing projects
+      const allProjs = getProjects();
+      for (const p of allProjs) ensureHistorySection(p.id);
+      if (allProjs.length > 0) { setDataVersion(v => v + 1); }
       // Parse URL for initial view
       const path = window.location.pathname;
       if (path !== '/') {
@@ -58,8 +66,14 @@ export default function App() {
             setView('project');
             setAppState('active_project_id', projectId);
             persistDB();
+          } else {
+            setActiveProjectId(null);
+            setView('dashboard');
           }
         }
+      } else {
+        setActiveProjectId(null);
+        setView('dashboard');
       }
       setDashboardData(getDashboardData());
       const qs = getQuotes();
@@ -111,7 +125,14 @@ export default function App() {
     const itemsMap = {};
     const pipeMap = {};
     for (const sec of secs) {
-      itemsMap[sec.id] = getItems(sec.id);
+      if (sec.type === 'history') {
+        itemsMap[sec.id] = getDoneItemsByProject(activeProjectId);
+      } else {
+        itemsMap[sec.id] = getItems(sec.id);
+        if (sec.type === 'checklist') {
+          itemsMap[sec.id] = itemsMap[sec.id].filter(i => !i.done);
+        }
+      }
       if (sec.type === 'pipeline') pipeMap[sec.id] = getPipelineSteps(sec.id);
     }
     return { sections: secs, itemsBySection: itemsMap, pipelineBySection: pipeMap };
@@ -205,6 +226,32 @@ export default function App() {
     setDataVersion(v => v + 1);
   }, []);
 
+  // Pipeline
+  const handleAddPipelineStep = useCallback((sectionId, text) => {
+    createPipelineStep(sectionId, text);
+    persistDB();
+    setDataVersion(v => v + 1);
+  }, []);
+
+  const handleUpdatePipelineStep = useCallback((stepId, fields) => {
+    if (typeof fields === 'string') fields = { text: fields };
+    updatePipelineStep(stepId, fields);
+    persistDB();
+    setDataVersion(v => v + 1);
+  }, []);
+
+  const handleDeletePipelineStep = useCallback((stepId) => {
+    deletePipelineStep(stepId);
+    persistDB();
+    setDataVersion(v => v + 1);
+  }, []);
+
+  const handleReorderPipelineSteps = useCallback((sectionId, stepIds) => {
+    reorderPipelineSteps(sectionId, stepIds);
+    persistDB();
+    setDataVersion(v => v + 1);
+  }, []);
+
   // Categories
   const handleCreateCategory = useCallback((name) => {
     createCategory(name);
@@ -232,11 +279,46 @@ export default function App() {
     setSidebarOpen(false);
   }, []);
 
+  const handleShowSettings = useCallback(() => {
+    setView('settings');
+    setActiveProjectId(null);
+    setSidebarOpen(false);
+  }, []);
+
   const handleDashboardSelectProject = useCallback((id) => {
     setActiveProjectId(id);
     setView('project');
     setAppState('active_project_id', id);
     persistDB();
+  }, []);
+
+  const sectionSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  function handleSectionDragEnd(event) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const ids = sections.map(s => s.id);
+    const oldIdx = ids.indexOf(active.id);
+    const newIdx = ids.indexOf(over.id);
+    if (oldIdx === -1 || newIdx === -1) return;
+    ids.splice(oldIdx, 1);
+    ids.splice(newIdx, 0, active.id);
+    reorderSections(activeProjectId, ids);
+    persistDB();
+    setDataVersion(v => v + 1);
+  }
+
+  const handleSectionReorderItems = useCallback((sectionId, itemIds) => {
+    reorderItems(sectionId, itemIds);
+    persistDB();
+    setDataVersion(v => v + 1);
+  }, []);
+
+  const handleDashboardToggleItem = useCallback((itemId) => {
+    toggleItem(itemId);
+    persistDB();
+    setDashboardData(getDashboardData());
+    setDataVersion(v => v + 1);
   }, []);
 
   const handleToggleSidebar = useCallback(() => setSidebarOpen(p => !p), []);
@@ -284,7 +366,7 @@ export default function App() {
     if (!ready) return;
     let targetUrl = '/';
     if (view === 'project' && activeProject) {
-      targetUrl = `/${encodeURIComponent(activeProject.category)}/${activeProject.id}`;
+      targetUrl = `/${encodeURIComponent(activeProject.category.toLowerCase())}/${activeProject.id}`;
     }
     if (window.location.pathname !== targetUrl) {
       window.history.pushState(null, '', targetUrl);
@@ -322,11 +404,6 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePop);
   }, []);
 
-  // Wrapper for onToggleItem to handle section-level toggle
-  const handleSectionToggleItem = useCallback((itemId) => {
-    handleToggleItem(itemId);
-  }, [handleToggleItem]);
-
   if (initError) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-base text-red-400 text-sm p-8" style={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
@@ -358,6 +435,7 @@ export default function App() {
         onToggleSidebar={handleToggleSidebar}
         onNextQuote={handleNextQuote}
         onShowDashboard={handleShowDashboard}
+        onShowSettings={handleShowSettings}
         sidebarOpen={sidebarOpen}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -365,6 +443,7 @@ export default function App() {
         onCreateCategory={handleCreateCategory}
         onRenameCategory={handleRenameCategory}
         onDeleteCategory={handleDeleteCategory}
+        onUpdateProject={handleUpdateProject}
       />
 
       {quickSearchOpen && (
@@ -376,47 +455,52 @@ export default function App() {
       )}
 
       <main className="flex-1 h-screen overflow-y-auto flex flex-col">
-        <button
-          type="button"
-          aria-label="Abrir menú de proyectos"
-          aria-expanded={sidebarOpen}
-          className="lg:hidden fixed top-3 left-3 z-30 w-9 h-9 rounded-sm bg-surface border border-border text-text-secondary text-lg flex items-center justify-center transition-colors hover:bg-surface-hover hover:text-text-primary"
-          onClick={handleToggleSidebar}
-        >
-          &#9776;
-        </button>
 
-        <MainHeader
-          project={activeProject}
-          totalItems={totalItems}
-          doneItems={doneItems}
-          onUpdateProject={handleUpdateProject}
-          onDeleteProject={handleDeleteProject}
-          onAddSection={handleAddSection}
-        />
+        {view === 'project' && activeProject && (
+          <MainHeader
+            project={activeProject}
+            totalItems={totalItems}
+            doneItems={doneItems}
+            onUpdateProject={handleUpdateProject}
+            onDeleteProject={handleDeleteProject}
+            onAddSection={handleAddSection}
+            onToggleSidebar={handleToggleSidebar}
+          />
+        )}
 
-        <div className={`flex-1 px-8 pb-12 max-sm:px-4 ${view === 'dashboard' ? '' : 'max-w-[820px]'}`}>
-          {view === 'dashboard' || !activeProject ? (
-            <Dashboard projects={dashboardData} onSelectProject={handleDashboardSelectProject} />
+        <div className={`flex-1 px-8 pb-12 max-sm:px-3 ${view === 'dashboard' ? '' : 'max-w-[820px] max-sm:max-w-full'}`}>
+          {view === 'settings' ? (
+            <Settings onShowDashboard={handleShowDashboard} onToggleSidebar={handleToggleSidebar} />
+          ) : view === 'dashboard' || !activeProject ? (
+            <Dashboard projects={dashboardData} onSelectProject={handleDashboardSelectProject} onToggleItem={handleDashboardToggleItem} onToggleSidebar={handleToggleSidebar} />
           ) : (
             <div className="pt-6">
-              {sections.map((sec, i) => (
-                <div key={sec.id} className="animate-fade-in" style={{ animationDelay: `${i * 40}ms` }}>
-                  <SectionCard
+              <DndContext onDragEnd={handleSectionDragEnd} sensors={sectionSensors}>
+                <SortableContext items={sections.map(s => s.id)} strategy={verticalListSortingStrategy}>
+                  {sections.map((sec, i) => (
+                    <div key={sec.id} className="animate-fade-in" style={{ animationDelay: `${i * 40}ms` }}>
+                      <SectionCard
                     section={sec}
                     items={itemsBySection[sec.id] || []}
                     pipelineSteps={pipelineBySection[sec.id] || []}
                     collapsed={sectionCollapsed[sec.id]}
                     onToggle={() => handleToggleSection(sec.id)}
-                    onToggleItem={handleSectionToggleItem}
+                    onToggleItem={handleToggleItem}
                     onDeleteItem={handleDeleteItem}
                     onUpdateItem={handleUpdateItem}
                     onAddItem={handleAddItem}
                     onDeleteSection={handleDeleteSection}
                     onRenameSection={handleRenameSection}
+                    onReorderItems={handleSectionReorderItems}
+                    onAddPipelineStep={handleAddPipelineStep}
+                    onUpdatePipelineStep={handleUpdatePipelineStep}
+                    onDeletePipelineStep={handleDeletePipelineStep}
+                    onReorderPipelineSteps={handleReorderPipelineSteps}
                   />
-                </div>
-              ))}
+                    </div>
+                  ))}
+                </SortableContext>
+              </DndContext>
             </div>
           )}
         </div>

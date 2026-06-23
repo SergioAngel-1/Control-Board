@@ -30,8 +30,8 @@ export default {
       },
       keyframes: {
         fadeIn: {
-          from: { opacity: '0', transform: 'translateY(6px)' },
-          to: { opacity: '1', transform: 'translateY(0)' },
+          from: { opacity: '0', translate: '0 6px' },
+          to: { opacity: '1', translate: '0 0' },
         },
       },
     },

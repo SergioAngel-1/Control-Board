@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { STATUS_DOT } from '../constants/colors.js';
 
 export default function QuickSearch({ projects, onSelect, onClose }) {
   const [query, setQuery] = useState('');
@@ -80,9 +81,4 @@ export default function QuickSearch({ projects, onSelect, onClose }) {
   );
 }
 
-const STATUS_DOT = {
-  activo:'#22c55e', esperando:'#f59e0b', esperando_contrato:'#f59e0b',
-  standby:'#6b7280', cerrado:'#ef4444', estrategico:'#8b5cf6',
-  prospecto:'#3b82f6', optimizado:'#06b6d4', terminado:'#22c55e',
-  mv_terminado:'#8b5cf6', pendientes:'#6b7280',
-};
+
