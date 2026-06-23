@@ -5,6 +5,7 @@ import ListSection from './ListSection.jsx';
 import PipelineSection from './PipelineSection.jsx';
 import NoteSection from './NoteSection.jsx';
 import HistorySection from './HistorySection.jsx';
+import { useConfirm } from './hooks/useConfirm.js';
 
 export default function SectionCard({
   section, items, pipelineSteps, collapsed,
@@ -14,6 +15,7 @@ export default function SectionCard({
 }) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleVal, setTitleVal] = useState(section.title);
+  const confirm = useConfirm();
   const inputRef = useRef(null);
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: section.id });
@@ -69,8 +71,11 @@ export default function SectionCard({
         </button>
         <button
           type="button"
-          onClick={() => onDeleteSection(section.id)}
-          className="opacity-0 group-hover/section:opacity-100 transition-opacity text-text-tertiary hover:text-red-400 text-xs px-1"
+          onClick={async () => {
+            const ok = await confirm({ title: 'Eliminar sección', message: `¿Eliminar la sección "${section.title}"? Todos sus items se borrarán.` });
+            if (ok) onDeleteSection(section.id);
+          }}
+          className="opacity-0 group-hover/section:opacity-100 transition-opacity text-text-tertiary hover:text-red-400 text-xs px-1 mr-1"
           title="Eliminar sección"
         >
           &#10005;

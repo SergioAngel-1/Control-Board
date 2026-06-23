@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import StatusBadge from './StatusBadge.jsx';
 import PriorityBadge from './PriorityBadge.jsx';
 import { STATUSES, PRIORITIES } from './db/database.js';
+import { useConfirm } from './hooks/useConfirm.js';
 
 export default function MainHeader({
   project, totalItems, doneItems, onUpdateProject, onDeleteProject, onAddSection, onToggleSidebar,
@@ -15,7 +16,7 @@ export default function MainHeader({
   const [newSectionType, setNewSectionType] = useState('checklist');
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesVal, setNotesVal] = useState('');
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const confirm = useConfirm();
   const inputRef = useRef(null);
   const notesRef = useRef(null);
   const statusRef = useRef(null);
@@ -199,28 +200,18 @@ export default function MainHeader({
         <div className="relative">
           <button
             type="button"
-            onClick={() => setShowDeleteConfirm(p => !p)}
+            onClick={async () => {
+              const ok = await confirm({ title: 'Eliminar proyecto', message: `¿Eliminar el proyecto "${project.name}"? Esta acción no se puede deshacer.` });
+              if (ok) onDeleteProject(project.id);
+            }}
             className="text-text-tertiary hover:text-red-400 px-1.5 py-0.5 rounded-sm hover:bg-surface-hover transition-colors"
             title="Eliminar proyecto"
           >
-            &#128465;
+            <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M2 3h12M5.5 3V2a1 1 0 011-1h3a1 1 0 011 1v1M3 3l1 11.5a1 1 0 001 .5h6a1 1 0 001-.5L13 3" strokeLinejoin="round" />
+              <path d="M6 6v6M10 6v6" strokeLinecap="round" />
+            </svg>
           </button>
-          {showDeleteConfirm && (
-            <div className="absolute top-full right-0 mt-1 z-50 bg-surface-raised border border-border rounded-[8px] p-3 shadow-lg min-w-[180px]">
-              <p className="text-xs text-text-secondary mb-2">¿Eliminar {project.name}?</p>
-              <div className="flex gap-1">
-                <button type="button"
-                  onClick={() => { onDeleteProject(project.id); setShowDeleteConfirm(false); }}
-                  className="flex-1 px-2 py-1 text-xs font-medium rounded-sm bg-red-500/15 text-red-400 border border-red-500/25 hover:bg-red-500/25 transition-colors">
-                  Eliminar
-                </button>
-                <button type="button" onClick={() => setShowDeleteConfirm(false)}
-                  className="px-2 py-1 text-xs text-text-tertiary hover:text-text-secondary transition-colors">
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </div>
       </div>

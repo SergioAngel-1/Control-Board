@@ -3,6 +3,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { STATUS_DOT } from './constants/colors.js';
+import { useConfirm } from './hooks/useConfirm.js';
 
 function CategoryDropZone({ category, isEmpty }) {
   const { setNodeRef, isOver } = useDroppable({
@@ -68,6 +69,7 @@ export default function NavSection({ category, projects, activeProjectId, collap
   const [newName, setNewName] = useState('');
   const [editingCat, setEditingCat] = useState(false);
   const [catName, setCatName] = useState('');
+  const confirm = useConfirm();
 
   const catLabel = typeof category === 'string' ? category : (category?.name ?? category);
 
@@ -119,7 +121,11 @@ export default function NavSection({ category, projects, activeProjectId, collap
               </button>
               <button
                 type="button"
-                onClick={(e) => { e.stopPropagation(); if (window.confirm(`¿Eliminar categoría "${catLabel}"?`)) onDelete?.(); }}
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  const ok = await confirm({ title: 'Eliminar categoría', message: `¿Eliminar la categoría "${catLabel}"? Los proyectos se moverán a "Sin categoria".` });
+                  if (ok) onDelete?.();
+                }}
                 className="opacity-0 group-hover/cat:opacity-100 text-text-tertiary hover:text-red-400 text-[10px] px-1 rounded-sm hover:bg-surface-hover transition-colors"
                 title="Eliminar categoría"
               >

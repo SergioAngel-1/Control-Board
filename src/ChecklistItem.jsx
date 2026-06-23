@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { formatDate, isOverdue } from './db/database.js';
 import RecurrencePicker from './RecurrencePicker.jsx';
+import { useConfirm } from './hooks/useConfirm.js';
+import DropdownPortal from './components/DropdownPortal.jsx';
 
 const ENERGY_OPTS = [
   { value: null, label: 'Sin energía' },
@@ -12,14 +14,20 @@ const ENERGY_OPTS = [
 
 const ENERGY_MAP = { alta: ENERGY_OPTS[1], media: ENERGY_OPTS[2], baja: ENERGY_OPTS[3] };
 
+const TAG_PRESETS = ['bug', 'feature', 'mejora', 'urgente', 'idea', 'seguimiento'];
+
 export default function ChecklistItem({ item, onToggle, onDelete, onUpdate }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(item.text);
   const [editingDate, setEditingDate] = useState(false);
+  const confirm = useConfirm();
   const [energyOpen, setEnergyOpen] = useState(false);
+  const [tagOpen, setTagOpen] = useState(false);
+  const [customTag, setCustomTag] = useState('');
   const inputRef = useRef(null);
   const dateRef = useRef(null);
   const energyRef = useRef(null);
+  const tagRef = useRef(null);
   const done = !!item.done;
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
@@ -43,13 +51,10 @@ export default function ChecklistItem({ item, onToggle, onDelete, onUpdate }) {
       if (editingDate && dateRef.current && !dateRef.current.contains(e.target)) {
         setEditingDate(false);
       }
-      if (energyOpen && energyRef.current && !energyRef.current.contains(e.target)) {
-        setEnergyOpen(false);
-      }
     }
     window.addEventListener('mousedown', handle);
     return () => window.removeEventListener('mousedown', handle);
-  }, [editingDate, energyOpen]);
+  }, [editingDate]);
 
   function handleSave() {
     const t = val.trim();
@@ -76,11 +81,11 @@ export default function ChecklistItem({ item, onToggle, onDelete, onUpdate }) {
       style={{ transform: transform && (transform.x || transform.y) ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined, transition, opacity: isDragging ? 0.4 : undefined }}
       {...attributes}
       {...listeners}
-      className="group flex items-center gap-2 px-3 py-1.5 rounded-sm cursor-grab active:cursor-grabbing transition-colors text-sm font-[450] text-text-primary hover:bg-surface-raised max-sm:gap-2 max-sm:py-2.5 max-sm:flex-wrap"
-      onClick={() => { if (!editing) onToggle(); }}
+      className="group flex items-center gap-1.5 px-3 py-1.5 rounded-sm cursor-grab active:cursor-grabbing transition-colors text-sm font-[450] text-text-primary hover:bg-surface-raised max-sm:gap-1 max-sm:py-2.5 overflow-x-auto"
     >
       <span
-        className={`w-[18px] h-[18px] rounded-[5px] border flex-shrink-0 flex items-center justify-center transition-all ${
+        onClick={e => { e.stopPropagation(); if (!editing) onToggle(); }}
+        className={`w-[18px] h-[18px] rounded-[5px] border flex-shrink-0 flex items-center justify-center transition-all cursor-pointer ${
           done ? 'bg-green-500 border-green-500' : 'border-border-light bg-transparent group-hover:border-text-tertiary'
         }`}
       >
@@ -103,7 +108,7 @@ export default function ChecklistItem({ item, onToggle, onDelete, onUpdate }) {
           className="flex-1 bg-transparent border-none outline-none text-sm text-text-primary"
         />
       ) : (
-        <span className="flex-1 max-sm:w-full flex items-center gap-1 min-w-0">
+        <span className="flex-1 flex items-center gap-1 min-w-0">
           <span
             className={`flex-1 min-w-0 truncate transition-colors ${done ? 'line-through text-text-tertiary' : ''}`}
             onDoubleClick={e => { e.stopPropagation(); setVal(item.text); setEditing(true); }}
@@ -112,8 +117,12 @@ export default function ChecklistItem({ item, onToggle, onDelete, onUpdate }) {
           </span>
           <button
             type="button"
-            onClick={e => { e.stopPropagation(); onDelete(item.id); }}
-            className="opacity-0 group-hover:opacity-100 max-sm:opacity-40 transition-opacity text-text-tertiary hover:text-red-400 text-xs px-1 py-0.5 flex-shrink-0"
+            onClick={async e => {
+              e.stopPropagation();
+              const ok = await confirm({ title: 'Eliminar tarea', message: `¿Eliminar "${item.text}"?` });
+              if (ok) onDelete(item.id);
+            }}
+            className="opacity-0 group-hover:opacity-100 max-sm:opacity-40 transition-opacity text-text-tertiary hover:text-red-400 text-xs px-1 py-0.5 flex-shrink-0 sm:hidden"
             title="Eliminar"
           >
             &#10005;
@@ -121,7 +130,7 @@ export default function ChecklistItem({ item, onToggle, onDelete, onUpdate }) {
         </span>
       )}
 
-      <div className="flex items-center gap-2 max-sm:gap-1.5 max-sm:w-full max-sm:flex-wrap">
+      <div className="flex items-center gap-1.5 flex-shrink-0 overflow-x-auto">
         {!editing && editingDate ? (
           <input
             ref={dateRef}
@@ -155,26 +164,71 @@ export default function ChecklistItem({ item, onToggle, onDelete, onUpdate }) {
           <button
             type="button"
             onClick={e => { e.stopPropagation(); setEditingDate(true); }}
-            className="opacity-0 group-hover:opacity-100 transition-opacity text-text-tertiary hover:text-text-secondary text-[10px] px-1 py-0.5 max-sm:hidden"
+            className="opacity-0 group-hover:opacity-100 transition-opacity text-text-tertiary hover:text-text-secondary text-[11px] px-2 py-0.5 rounded-full min-w-[90px] text-center whitespace-nowrap max-sm:hidden"
             title="Añadir fecha"
           >
             + fecha
           </button>
         )}
 
-        {item.tag && !editing && (
-          <span className="text-[11px] bg-accent/10 text-accent border border-accent/15 px-2 py-0.5 rounded-full whitespace-nowrap font-medium min-w-[90px] text-center">
-            <svg className="w-2.5 h-2.5 mr-1 inline-block align-middle" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-              <path d="M1.5 6.5V1.5h5l4.5 4.5-5 5L1.5 6.5z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
-              <circle cx="4" cy="4" r="0.8" fill="currentColor" />
-            </svg>
-            {item.tag}
-          </span>
+        {!editing && (
+          <>
+            <button
+              ref={tagRef}
+              type="button"
+              onClick={e => { e.stopPropagation(); setTagOpen(!tagOpen); }}
+              className={`text-[11px] px-2 py-0.5 rounded-full whitespace-nowrap transition-colors min-w-[90px] text-center ${
+                item.tag
+                  ? 'bg-accent/10 text-accent border border-accent/15 font-medium'
+                  : 'opacity-0 group-hover:opacity-100 text-text-tertiary hover:text-text-secondary'
+              }`}
+              title="Etiqueta"
+            >
+              <svg className="w-2.5 h-2.5 mr-1 inline-block align-middle" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                <path d="M1.5 6.5V1.5h5l4.5 4.5-5 5L1.5 6.5z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
+                <circle cx="4" cy="4" r="0.8" fill="currentColor" />
+              </svg>
+              {item.tag || '+ etiqueta'}
+            </button>
+            <DropdownPortal open={tagOpen} triggerRef={tagRef} onClose={() => { setTagOpen(false); setCustomTag(''); }}>
+              {TAG_PRESETS.map(t => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => { onUpdate(item.id, { tag: item.tag === t ? null : t }); setTagOpen(false); }}
+                  className={`block w-full text-left px-3 py-1.5 text-xs transition-colors ${
+                    item.tag === t ? 'text-accent bg-accent/10' : 'text-text-secondary hover:bg-surface-hover'
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+              <div className="border-t border-border my-1" />
+              <form
+                onSubmit={e => {
+                  e.preventDefault();
+                  const t = customTag.trim();
+                  if (t) { onUpdate(item.id, { tag: t }); setCustomTag(''); setTagOpen(false); }
+                }}
+                className="px-2 py-1"
+              >
+                <input
+                  type="text"
+                  value={customTag}
+                  onChange={e => setCustomTag(e.target.value)}
+                  placeholder="Personalizada…"
+                  className="w-full bg-surface border border-border rounded-sm px-2 py-1 text-xs text-text-primary placeholder:text-text-tertiary outline-none"
+                  autoFocus
+                />
+              </form>
+            </DropdownPortal>
+          </>
         )}
 
         {!editing && !done && (
-          <div ref={energyRef} className={`relative ${!item.energy ? 'max-sm:hidden' : ''}`}>
+          <span className={`${!item.energy ? 'max-sm:hidden' : ''}`}>
             <button
+              ref={energyRef}
               type="button"
               onClick={e => { e.stopPropagation(); setEnergyOpen(!energyOpen); }}
               className={`text-[11px] px-2 py-0.5 rounded-full whitespace-nowrap transition-colors min-w-[90px] text-center ${
@@ -189,30 +243,24 @@ export default function ChecklistItem({ item, onToggle, onDelete, onUpdate }) {
               </svg>
               {item.energy ? ENERGY_MAP[item.energy]?.label || item.energy : '+ energía'}
             </button>
-            {energyOpen && (
-              <div className="absolute right-0 top-full mt-1 bg-surface-raised border border-border rounded-md shadow-lg z-50 py-1 min-w-[120px]">
-                {ENERGY_OPTS.map(opt => (
-                  <button
-                    key={opt.value || 'none'}
-                    type="button"
-                    onClick={e => {
-                      e.stopPropagation();
-                      onUpdate(item.id, { energy: opt.value });
-                      setEnergyOpen(false);
-                    }}
-                    className={`block w-full text-left px-3 py-1.5 text-xs transition-colors ${
-                      item.energy === opt.value
-                        ? 'text-accent bg-accent/10'
-                        : 'text-text-secondary hover:bg-surface-hover'
-                    }`}
-                  >
-                    {opt.value && <span className={`inline-block w-1.5 h-1.5 rounded-full mr-2 ${opt.cls?.split(' ')[0] || ''}`} />}
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+            <DropdownPortal open={energyOpen} triggerRef={energyRef} onClose={() => setEnergyOpen(false)}>
+              {ENERGY_OPTS.map(opt => (
+                <button
+                  key={opt.value || 'none'}
+                  type="button"
+                  onClick={() => { onUpdate(item.id, { energy: opt.value }); setEnergyOpen(false); }}
+                  className={`block w-full text-left px-3 py-1.5 text-xs transition-colors ${
+                    item.energy === opt.value
+                      ? 'text-accent bg-accent/10'
+                      : 'text-text-secondary hover:bg-surface-hover'
+                  }`}
+                >
+                  {opt.value && <span className={`inline-block w-1.5 h-1.5 rounded-full mr-2 ${opt.cls?.split(' ')[0] || ''}`} />}
+                  {opt.label}
+                </button>
+              ))}
+            </DropdownPortal>
+          </span>
         )}
 
         {!editing && !done && (
@@ -224,6 +272,18 @@ export default function ChecklistItem({ item, onToggle, onDelete, onUpdate }) {
           </span>
         )}
 
+        <button
+          type="button"
+          onClick={async e => {
+            e.stopPropagation();
+            const ok = await confirm({ title: 'Eliminar tarea', message: `¿Eliminar "${item.text}"?` });
+            if (ok) onDelete(item.id);
+          }}
+          className="opacity-0 group-hover:opacity-100 transition-opacity text-text-tertiary hover:text-red-400 text-xs px-1 py-0.5 hidden sm:block flex-shrink-0"
+          title="Eliminar"
+        >
+          &#10005;
+        </button>
       </div>
     </div>
   );

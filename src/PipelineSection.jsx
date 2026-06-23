@@ -3,10 +3,12 @@ import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useConfirm } from './hooks/useConfirm.js';
 
 function PipelineStep({ step, onUpdate, onDelete }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(step.text);
+  const confirm = useConfirm();
   const inputRef = useRef(null);
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: step.id });
@@ -55,7 +57,10 @@ function PipelineStep({ step, onUpdate, onDelete }) {
       )}
       <button
         type="button"
-        onClick={() => onDelete(step.id)}
+        onClick={async () => {
+          const ok = await confirm({ title: 'Eliminar paso', message: `¿Eliminar "${step.text}"?` });
+          if (ok) onDelete(step.id);
+        }}
         className="ml-0.5 opacity-0 group-hover/pipeline:opacity-100 transition-opacity text-text-tertiary hover:text-red-400 text-[10px] px-0.5 rounded-full hover:bg-surface-hover"
         title="Eliminar paso"
       >

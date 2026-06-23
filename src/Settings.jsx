@@ -5,6 +5,7 @@ export default function Settings({ onShowDashboard, onToggleSidebar }) {
   const [msg, setMsg] = useState(null);
   const [error, setError] = useState(null);
   const [replaceMode, setReplaceMode] = useState(true);
+  const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef(null);
 
   function handleExport() {
@@ -28,8 +29,7 @@ export default function Settings({ onShowDashboard, onToggleSidebar }) {
     }
   }
 
-  async function handleImport(e) {
-    const file = e.target.files[0];
+  async function processFile(file) {
     if (!file) return;
     try {
       let text = await file.text();
@@ -44,7 +44,44 @@ export default function Settings({ onShowDashboard, onToggleSidebar }) {
       setError('Error al importar: ' + e.message);
       setMsg(null);
     }
+  }
+
+  async function handleImport(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    await processFile(file);
     if (fileRef.current) fileRef.current.value = '';
+  }
+
+  function handleDragOver(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(true);
+  }
+
+  function handleDragEnter(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(true);
+  }
+
+  function handleDragLeave(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+  }
+
+  async function handleDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file && file.name.endsWith('.json')) {
+      await processFile(file);
+    } else {
+      setError('Solo se aceptan archivos .json');
+      setMsg(null);
+    }
   }
 
   function handleDownloadTemplate() {
@@ -81,7 +118,7 @@ export default function Settings({ onShowDashboard, onToggleSidebar }) {
   }
 
   return (
-    <div className="pt-6 max-w-[600px]">
+    <div className="pt-6 max-w-[640px] animate-fade-in">
       <div className="flex items-center gap-3 mb-1">
         <button
           type="button"
@@ -98,39 +135,82 @@ export default function Settings({ onShowDashboard, onToggleSidebar }) {
       <p className="text-xs text-text-tertiary mb-6">Exportar e importar datos de la base local</p>
 
       {msg && (
-        <div className="mb-4 px-3 py-2 rounded-sm bg-accent/10 border border-accent/25 text-xs text-accent">
+        <div className="mb-4 px-3 py-2 rounded-sm bg-accent/10 border border-accent/25 text-xs text-accent animate-fade-in">
           {msg}
         </div>
       )}
       {error && (
-        <div className="mb-4 px-3 py-2 rounded-sm bg-red-400/10 border border-red-400/25 text-xs text-red-400">
+        <div className="mb-4 px-3 py-2 rounded-sm bg-red-400/10 border border-red-400/25 text-xs text-red-400 animate-fade-in">
           {error}
         </div>
       )}
 
-      <div className="space-y-3">
-        <div className="bg-surface border border-border rounded-lg p-4">
-          <h3 className="text-sm font-medium text-text-primary mb-1">Exportar</h3>
-          <p className="text-xs text-text-tertiary mb-3">
-            Descarga un archivo JSON con todos los proyectos, tareas y configuración.
-          </p>
+      <div className="flex flex-col gap-4">
+        <div className="bg-surface border border-border rounded-lg p-5 flex flex-col gap-4 transition-all hover:border-border-light">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
+              <svg className="w-4 h-4 text-accent" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M8 1v10M4 7l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M2 13h12" strokeLinecap="round" />
+              </svg>
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-sm font-medium text-text-primary">Exportar</h3>
+              <p className="text-xs text-text-tertiary mt-0.5">Descarga un JSON con todos los datos</p>
+            </div>
+          </div>
           <button
             type="button"
             onClick={handleExport}
-            className="px-3 py-1.5 text-xs font-medium rounded-sm bg-accent/15 text-accent border border-accent/25 hover:bg-accent/25 transition-colors"
+            className="w-full px-3 py-1.5 text-xs font-medium rounded-sm bg-accent/15 text-accent border border-accent/25 hover:bg-accent/25 transition-colors"
           >
             Descargar JSON
           </button>
         </div>
 
-        <div className="bg-surface border border-border rounded-lg p-4">
-          <h3 className="text-sm font-medium text-text-primary mb-1">Importar</h3>
-          <p className="text-xs text-text-tertiary mb-3">
-            {replaceMode
-              ? 'Reemplaza todos los datos actuales con un archivo JSON. Esta acción no se puede deshacer.'
-              : 'Fusiona los datos del archivo: actualiza proyectos existentes por ID y añade los nuevos.'}
-          </p>
-          <label className="flex items-center gap-2 mb-3 cursor-pointer select-none">
+        <div className="bg-surface border border-border rounded-lg p-5 flex flex-col gap-4 transition-all hover:border-border-light">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
+              <svg className="w-4 h-4 text-accent" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M8 15V5M4 9l4-4 4 4" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M2 3h12" strokeLinecap="round" />
+              </svg>
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-sm font-medium text-text-primary">Importar</h3>
+              <p className="text-xs text-text-tertiary mt-0.5">Carga un archivo JSON de respaldo</p>
+            </div>
+          </div>
+          <div
+            onDragOver={handleDragOver}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`border-2 border-dashed rounded-lg p-5 text-center transition-all cursor-pointer ${
+              dragOver
+                ? 'border-accent bg-accent/5'
+                : 'border-border-light hover:border-text-tertiary bg-transparent'
+            }`}
+            onClick={() => fileRef.current?.click()}
+          >
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".json"
+              onChange={handleImport}
+              className="hidden"
+            />
+            <svg className={`w-6 h-6 mx-auto mb-2 transition-colors ${dragOver ? 'text-accent' : 'text-text-tertiary'}`} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.2">
+              <path d="M8 11V1M4 5l4-4 4 4" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M2 12v1.5A1.5 1.5 0 003.5 15h9a1.5 1.5 0 001.5-1.5V12" strokeLinecap="round" />
+            </svg>
+            <p className={`text-xs mb-1 ${dragOver ? 'text-accent font-medium' : 'text-text-secondary'}`}>
+              {dragOver ? 'Soltar archivo aquí' : 'Arrastra un archivo .json'}
+            </p>
+            <p className="text-[10px] text-text-tertiary">o haz clic para seleccionar</p>
+          </div>
+
+          <label className="flex items-center gap-2 cursor-pointer select-none">
             <input
               type="checkbox"
               checked={replaceMode}
@@ -139,17 +219,11 @@ export default function Settings({ onShowDashboard, onToggleSidebar }) {
             />
             <span className="text-xs text-text-secondary">Reemplazar datos actuales</span>
           </label>
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".json"
-            onChange={handleImport}
-            className="block text-xs text-text-secondary file:mr-3 file:py-1.5 file:px-3 file:text-xs file:font-medium file:rounded-sm file:border file:border-accent/25 file:bg-accent/15 file:text-accent hover:file:bg-accent/25 file:transition-colors file:cursor-pointer"
-          />
+
           <button
             type="button"
             onClick={handleDownloadTemplate}
-            className="mt-2 text-xs text-text-tertiary hover:text-text-secondary transition-colors underline underline-offset-2"
+            className="text-xs text-text-tertiary hover:text-text-secondary transition-colors underline underline-offset-2 self-start"
           >
             Descargar formato
           </button>
@@ -159,9 +233,12 @@ export default function Settings({ onShowDashboard, onToggleSidebar }) {
       <button
         type="button"
         onClick={onShowDashboard}
-        className="mt-6 text-xs text-text-tertiary hover:text-text-secondary transition-colors"
+        className="mt-6 flex items-center gap-1 text-xs text-text-tertiary hover:text-text-secondary transition-colors"
       >
-        &larr; Volver al Dashboard
+        <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M10 3l-5 5 5 5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        Volver al Dashboard
       </button>
     </div>
   );

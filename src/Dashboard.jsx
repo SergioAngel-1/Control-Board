@@ -63,7 +63,7 @@ function ProjectCard({ project, sections, itemsBySection, onSelect, onToggleItem
       <div className="flex items-center gap-2 flex-wrap">
         <StatusBadge status={project.status} />
         {project.notes && (
-          <span className="text-[11px] text-text-tertiary truncate max-w-[200px] max-sm:max-w-[120px]">{project.notes}</span>
+          <span className="text-[11px] text-text-tertiary leading-relaxed">{project.notes}</span>
         )}
       </div>
 

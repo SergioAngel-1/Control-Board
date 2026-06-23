@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { formatDate, isOverdue } from './db/database.js';
+import { useConfirm } from './hooks/useConfirm.js';
 
 function ListItem({ item, onDelete, onUpdate }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(item.text);
   const [editingDate, setEditingDate] = useState(false);
+  const confirm = useConfirm();
   const inputRef = useRef(null);
   const dateRef = useRef(null);
 
@@ -105,7 +107,10 @@ function ListItem({ item, onDelete, onUpdate }) {
       {!editing && (
         <button
           type="button"
-          onClick={() => onDelete(item.id)}
+          onClick={async () => {
+            const ok = await confirm({ title: 'Eliminar item', message: `¿Eliminar "${item.text}"?` });
+            if (ok) onDelete(item.id);
+          }}
           className="opacity-0 group-hover:opacity-100 transition-opacity text-text-tertiary hover:text-red-400 text-xs px-1 py-0.5"
           title="Eliminar"
         >

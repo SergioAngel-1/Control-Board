@@ -468,7 +468,7 @@ export default function App() {
           />
         )}
 
-        <div className={`flex-1 px-8 pb-12 max-sm:px-3 ${view === 'dashboard' ? '' : 'max-w-[820px] max-sm:max-w-full'}`}>
+        <div className={`flex-1 px-8 pb-12 max-sm:px-3 ${view === 'dashboard' ? '' : 'max-w-[1200px] max-sm:max-w-full'}`}>
           {view === 'settings' ? (
             <Settings onShowDashboard={handleShowDashboard} onToggleSidebar={handleToggleSidebar} />
           ) : view === 'dashboard' || !activeProject ? (
